@@ -15,7 +15,7 @@
 
         #game-container {
             position: relative; 
-            flex-grow: 1; /* Neemt alle ruimte boven de tekst in */
+            flex-grow: 1; 
             width: 100vw;
             background-image: url('toverzolder.png');
             background-size: contain; 
@@ -45,13 +45,13 @@
 
         #help-trigger {
             position: fixed; top: 15px; right: 15px;
-            font-size: 2rem; cursor: pointer; z-index: 200;
-            filter: drop-shadow(0 0 5px white);
+            font-size: 2.5rem; cursor: pointer; z-index: 200;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));
         }
 
         #modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.92);
             display: none; justify-content: center; align-items: center;
             z-index: 1000;
         }
@@ -60,11 +60,12 @@
             background: #2c3e50; border: 4px solid #ff00ff;
             padding: 20px; border-radius: 20px; width: 85%; max-width: 400px;
             text-align: center; color: white;
+            box-shadow: 0 0 30px #ff00ff;
         }
 
         #history-list {
             display: flex; flex-wrap: wrap; justify-content: center;
-            gap: 10px; margin: 20px 0; font-size: 1.8rem;
+            gap: 12px; margin: 20px 0; font-size: 2.2rem;
         }
 
         .clothing-icon {
@@ -73,7 +74,6 @@
             cursor: pointer; user-select: none;
             transition: transform 0.2s, opacity 0.3s;
             z-index: 10; touch-action: manipulation;
-            /* Zorg dat het midden van het icoon telt voor positie */
             transform: translate(-50%, -50%);
         }
 
@@ -82,24 +82,25 @@
         #counter {
             position: fixed; top: 15px; left: 15px;
             font-size: 2rem; font-weight: bold;
-            color: rgba(255, 255, 255, 0.6); pointer-events: none; z-index: 100;
+            color: rgba(255, 255, 255, 0.4); pointer-events: none; z-index: 100;
         }
 
-        /* Instructie nu echt onderaan het scherm */
         #instruction-bar {
             width: 100%;
-            padding: 15px 0;
+            padding: 18px 0;
             background: #1a0f0a;
             color: white;
             text-align: center;
-            font-size: min(4vw, 18px);
+            font-size: min(4.5vw, 20px);
             font-weight: bold;
             z-index: 100;
+            border-top: 1px solid #332211;
         }
 
         .close-btn {
-            background: #ff00ff; border: none; padding: 10px 20px;
-            color: white; font-family: 'Finger Paint'; border-radius: 10px; cursor: pointer;
+            background: #ff00ff; border: none; padding: 12px 24px;
+            color: white; font-family: 'Finger Paint'; border-radius: 12px; cursor: pointer;
+            font-size: 1rem;
         }
     </style>
 </head>
@@ -110,9 +111,9 @@
 
 <div id="modal-overlay">
     <div id="modal-content">
-        <h2>De Volgorde:</h2>
+        <h2 style="margin-top:0">De Volgorde:</h2>
         <div id="history-list"></div>
-        <button class="close-btn" onclick="closeModal()">TERUG</button>
+        <button class="close-btn" onclick="closeModal()">IK WEET HET WEER!</button>
     </div>
 </div>
 
@@ -137,7 +138,10 @@
 
     const clothingTypes = ['👕', '👖', '🧥', '👗', '👘', '🦺', '👒', '🧢', '🧣', '🧤', '👚', '👔', '👟', '🎒'];
 
+    // Audio Context
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Geluid bij wegklikken kleding (hoog en kort)
     function playMagicSound() {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -150,7 +154,27 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.3);
     }
 
+    // Geluid bij klikken op vraagteken (mysterieus/shimmer)
+    function playHelpSound() {
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.1));
+            gain.gain.setValueAtTime(0, audioCtx.currentTime + (i * 0.1));
+            gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + (i * 0.1) + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (i * 0.1) + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + (i * 0.1));
+            osc.stop(audioCtx.currentTime + (i * 0.1) + 0.5);
+        });
+    }
+
     function openModal() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        playHelpSound(); // Maakt iedereen wakker!
+        
         historyList.innerHTML = "";
         history.forEach(item => {
             const span = document.createElement('span');
@@ -168,13 +192,11 @@
         const totalIcons = 25;
         let attempts = 0;
         
-        while (placedIcons.length < totalIcons && attempts < 1000) {
-            // Horizontaal: 10% tot 90% om zijkanten te mijden
-            // Verticaal: 22% tot 78% om boven- en onderkant (20% marges + buffer) te mijden
+        while (placedIcons.length < totalIcons && attempts < 1200) {
             const left = Math.random() * 80 + 10;
             const top = Math.random() * 56 + 22;
 
-            const tooClose = placedIcons.some(p => Math.sqrt(Math.pow(p.x - left, 2) + Math.pow(p.y - top, 2)) < 14);
+            const tooClose = placedIcons.some(p => Math.sqrt(Math.pow(p.x - left, 2) + Math.pow(p.y - top, 2)) < 15);
 
             if (!tooClose) {
                 const icon = document.createElement('div');
